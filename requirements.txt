@@ -5,3 +5,5 @@ numpy
 transformers
 accelerate
 coqui-tts
+pydub
+simpleaudio

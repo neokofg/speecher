@@ -23,7 +23,7 @@ class TranslationModel:
 
     def translate(self, text, source_lang, target_lang):
         prompt_template = PromptTemplate.from_template(
-            f"Translate this from {source_lang} to {target_lang}:\n{source_lang}: {{input_text}}\n{target_lang}:"
+            f"You're a speech translator. Translate given text from {source_lang} to {target_lang}, dont add the original text, only output the translated text:\n{source_lang}: {{input_text}}"
         )
 
         prompt = prompt_template.format(input_text=text)
@@ -32,12 +32,13 @@ class TranslationModel:
 
         with torch.no_grad():
             generated_ids = self.model.generate(
-                input_ids=input_ids, 
-                num_beams=3, 
-                max_new_tokens=20, 
-                do_sample=False, 
-                temperature=0.7, 
-                top_p=0.8
+                input_ids=input_ids,
+                num_beams=3,
+                max_new_tokens=20,
+                do_sample=False,
+                temperature=0.7,
+                top_p=0.8,
+                return_full_text=False
             )
 
         outputs = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)

@@ -23,7 +23,7 @@ class TranslationModel:
 
     def translate(self, text, source_lang, target_lang):
         prompt_template = PromptTemplate.from_template(
-            f"You're a speech translator. Translate given text from {source_lang} to {target_lang}, dont add the original text, only output the translated text:\n{source_lang}: {{input_text}}"
+            f"Translate words from {source_lang} to {target_lang}:\n{source_lang}: {{input_text}}\n{target_lang}:"
         )
         prompt = prompt_template.format(input_text=text)
 

@@ -47,10 +47,7 @@ class TranslationModel:
 
         full_output = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
-        if prompt in full_output:
-            translation = full_output.split(prompt, 1)[-1].strip()
-        else:
-            translation = full_output.strip()
+        translation = full_output.split(prompt, 1)[-1].strip()
 
         return translation
 

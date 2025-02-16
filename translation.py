@@ -23,12 +23,14 @@ class TranslationModel:
 
     def translate(self, text, source_lang, target_lang):
         prompt_template = PromptTemplate.from_template(
-            f"Translate this from {source_lang} to {target_lang}:\n{source_lang}: {{input_text}}\n{target_lang}:"
+            f"You're a speech translator. Translate given text from {source_lang} to {target_lang}, don't add the original text, only output the translated text:\n{source_lang}: {{input_text}}"
         )
 
         prompt = prompt_template.format(input_text=text)
-
-        input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, max_length=40, truncation=True).input_ids.cuda()
+        # Tokenize the prompt and get the token length.
+        encoding = self.tokenizer(prompt, return_tensors="pt", padding=True, max_length=40, truncation=True)
+        input_ids = encoding.input_ids.cuda()
+        prompt_length = input_ids.shape[1]
 
         with torch.no_grad():
             generated_ids = self.model.generate(
@@ -38,13 +40,16 @@ class TranslationModel:
                 do_sample=False,
                 temperature=0.7,
                 top_p=0.8,
-                return_full_text=False
             )
 
-        outputs = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+        # Decode the full output and then remove the prompt part.
+        full_output = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
-        translation = outputs[0].split(f"{target_lang}: ")[-1].strip()
-        
+        # Alternatively, slice out the generated part using token ids.
+        # Remove the tokens corresponding to the prompt.
+        generated_tokens = generated_ids[0][prompt_length:]
+        translation = self.tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+
         return translation
 
 

@@ -136,14 +136,14 @@ async def tts_handler(request):
             tts.tts_to_file(
                 text=text,
                 file_path=output_file,
-                speaker_wav="path/to/voice.wav",
+                speaker_wav="voice/voice.wav",
                 language="ru"
             )
         else:
             tts.tts_to_file(
                 text=text,
                 file_path=output_file,
-                speaker_wav="path/to/voice.wav",
+                speaker_wav="voice/voice.wav",
                 language=language
             )
 

@@ -8,6 +8,4 @@ coqui-tts
 pydub
 simpleaudio
 langchain_core
-TTS
 langchain_huggingface
-pydub

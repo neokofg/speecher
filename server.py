@@ -109,7 +109,7 @@ async def tts_handler(request):
             return web.json_response({"error": "Нет текста"}, status=400)
 
         output_file = f"{uuid.uuid4()}_output.wav"
-        
+
         if language == "russian" or language == "ru":
             tts.tts_to_file(
                 text=text,

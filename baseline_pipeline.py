@@ -53,10 +53,9 @@ def process_audio():
 
             buffer = np.concatenate((buffer, data))
 
-            # Очистка буфера при длительном молчании
             if np.max(np.abs(data)) < 0.005:
                 silence_duration += len(data) / sample_rate
-                if silence_duration > 2.0:  # 2 секунды тишины
+                if silence_duration > 2.0:
                     buffer = np.empty((0, 1), dtype=np.float32)
                     silence_duration = 0
             else:

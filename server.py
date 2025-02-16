@@ -1,14 +1,19 @@
 import asyncio
+import json
 import logging
 import os
 import time
 import uuid
+import requests
 
 import numpy as np
 from aiohttp import web
 import aiohttp_cors
 from scipy import signal
 from translation import TranslationModel
+
+from langchain_huggingface import HuggingFaceEndpoint
+from langchain_core.prompts import PromptTemplate
 
 try:
     from baseline_pipeline import pipe, block_size
@@ -174,6 +179,57 @@ async def translate_handler(request):
         logging.error(f"Translation error: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+async def summarize_handler(request):
+    try:
+        data = await request.json()
+        content = data.get("content")
+        if not content:
+            return web.json_response({"error": "Нет контента для суммаризации"}, status=400)
+
+        # Формируем payload для запроса, как в предоставленном примере
+        prompt = {
+            "modelUri": "gpt://b1gtk869ka7gcnf3975l/yandexgpt",
+            "completionOptions": {
+                "stream": False,
+                "temperature": 0.6,
+                "maxTokens": "400"
+            },
+            "messages": [
+                {
+                    "role": "system",
+                    "text": (
+                        "Ты - суммаризатор текста. Твоя задача суммаризировать текст на том же языке, "
+                        "что и сам текст. Пойми какого языка входной текст, после чего суммаризируй на том же языке, "
+                        "что и входной текст. Только суммаризируй и ничего более не придумывай."
+                    )
+                },
+                {
+                    "role": "user",
+                    "text": content
+                }
+            ]
+        }
+
+        url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Api-Key AQVN2ryHFrvwR5STzsK8E1plXrOi-6B8hpStSi8s"
+        }
+
+        # Выполняем запрос синхронно в отдельном потоке, чтобы не блокировать event loop
+        response = await asyncio.to_thread(requests.post, url, headers=headers, json=prompt)
+        result = response.json()
+        if "result" in result and "alternatives" in result["result"]:
+            summary_text = result["result"]["alternatives"][0]["message"]["text"]
+            return web.json_response({"summary": summary_text})
+        else:
+            logging.error(
+                "Ошибка при получении суммаризированного текста: " + json.dumps(result, ensure_ascii=False, indent=4))
+            return web.json_response({"error": "Ошибка при получении суммаризированного текста.", "details": result},
+                                     status=500)
+    except Exception as e:
+        logging.error(f"Summarization error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
 
 app = web.Application()
 cors = aiohttp_cors.setup(app, defaults={
@@ -187,6 +243,7 @@ cors = aiohttp_cors.setup(app, defaults={
 app.router.add_get('/ws', websocket_handler)
 app.router.add_post('/api/tts', tts_handler)
 app.router.add_post('/api/translate', translate_handler)
+app.router.add_post('/api/summarize', summarize_handler)
 
 for route in list(app.router.routes()):
     cors.add(route)

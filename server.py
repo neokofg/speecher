@@ -11,6 +11,8 @@ from baseline_pipeline import pipe, block_size
 from scipy import signal
 from initialize_tts import tts
 
+from translation import TranslationModel
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -58,9 +60,9 @@ async def websocket_handler(request):
                     ])
 
                     should_process = (
-                            processor.is_speaking and
-                            processor.silence_duration > 0.3 and
-                            (time.time() - processor.speech_started_at) > processor.min_speech_duration
+                        processor.is_speaking and
+                        processor.silence_duration > 0.3 and
+                        (time.time() - processor.speech_started_at) > processor.min_speech_duration
                     )
 
                     if should_process:
@@ -75,8 +77,7 @@ async def websocket_handler(request):
                                 "task": "transcribe"
                             })["text"].strip()
 
-                            if result and result not in ["Продолжение следует...",
-                                                         "Спасибо."] and result != processor.last_sent_text:
+                            if result and result not in ["Продолжение следует...", "Спасибо."] and result != processor.last_sent_text:
                                 logging.info(f"Sending result: {result}")
                                 await ws.send_str(result)
                                 processor.last_sent_text = result
@@ -110,7 +111,7 @@ async def tts_handler(request):
 
         output_file = f"{uuid.uuid4()}_output.wav"
 
-        if language == "russian" or language == "ru":
+        if language in ["russian", "ru"]:
             tts.tts_to_file(
                 text=text,
                 file_path=output_file,
@@ -133,6 +134,27 @@ async def tts_handler(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
+
+translator = TranslationModel()
+async def translate_handler(request):
+    try:
+        data = await request.json()
+        text = data.get("text")
+        source_lang = data.get("source_lang", "Russian")
+        target_lang = data.get("target_lang", "English")
+
+        if not text:
+            return web.json_response({"error": "Нет текста для перевода"}, status=400)
+
+        # Запускаем перевод в отдельном потоке, чтобы не блокировать event loop
+        translation_result = await asyncio.to_thread(translator.translate, text, source_lang, target_lang)
+
+        return web.json_response({"translation": translation_result})
+    except Exception as e:
+        logging.error(f"Translation error: {e}")
+        return web.json_response({"error": str(e)}, status=500)
+
+
 app = web.Application()
 cors = aiohttp_cors.setup(app, defaults={
     "*": aiohttp_cors.ResourceOptions(
@@ -144,6 +166,8 @@ cors = aiohttp_cors.setup(app, defaults={
 
 app.router.add_get('/ws', websocket_handler)
 app.router.add_post('/api/tts', tts_handler)
+app.router.add_post('/api/translate', translate_handler)
+
 for route in list(app.router.routes()):
     cors.add(route)
 

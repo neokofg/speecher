@@ -45,9 +45,9 @@ class TranslationModel:
                 top_p=0.8,
             )
 
-        full_output = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        outputs = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
 
-        translation = full_output[len(prompt):].strip()
+        translation = outputs[0].split(f"{target_lang}: ")[-1].strip()
 
         return translation
 

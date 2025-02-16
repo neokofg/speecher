@@ -38,7 +38,6 @@ class TranslationModel:
                 do_sample=False,
                 temperature=0.7,
                 top_p=0.8,
-                return_full_text=False
             )
 
         outputs = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)

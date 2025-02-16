@@ -1,0 +1,7 @@
+aiohttp
+aiohttp_cors
+scipy
+numpy
+transformers
+accelerate
+coqui-tts

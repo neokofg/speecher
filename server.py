@@ -7,11 +7,27 @@ import uuid
 import numpy as np
 from aiohttp import web
 import aiohttp_cors
-from baseline_pipeline import pipe, block_size
 from scipy import signal
-from initialize_tts import tts
-
 from translation import TranslationModel
+
+try:
+    from baseline_pipeline import pipe, block_size
+except Exception as e:
+    logging.error(f"Failed to load ASR module (baseline_pipeline): {e}")
+    pipe = None
+    block_size = None
+
+try:
+    from initialize_tts import tts
+except (SystemExit, Exception) as e:
+    logging.error(f"Failed to load TTS module: {e}")
+    tts = None
+
+try:
+    translator = TranslationModel()
+except Exception as e:
+    logging.error(f"Translation model initialization failed: {e}")
+    translator = None
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -71,19 +87,22 @@ async def websocket_handler(request):
                         processor.buffer = np.empty((0, 1), dtype=np.float32)
                         processor.is_speaking = False
 
-                        try:
-                            result = pipe(chunk, generate_kwargs={
-                                "language": "ru",
-                                "task": "transcribe"
-                            })["text"].strip()
+                        if pipe is None:
+                            logging.error("ASR service unavailable, skipping processing")
+                        else:
+                            try:
+                                result = pipe(chunk, generate_kwargs={
+                                    "language": "ru",
+                                    "task": "transcribe"
+                                })["text"].strip()
 
-                            if result and result not in ["Продолжение следует...", "Спасибо."] and result != processor.last_sent_text:
-                                logging.info(f"Sending result: {result}")
-                                await ws.send_str(result)
-                                processor.last_sent_text = result
+                                if result and result not in ["Продолжение следует...", "Спасибо."] and result != processor.last_sent_text:
+                                    logging.info(f"Sending result: {result}")
+                                    await ws.send_str(result)
+                                    processor.last_sent_text = result
 
-                        except Exception as e:
-                            logging.error(f"ASR Error: {e}")
+                            except Exception as e:
+                                logging.error(f"ASR Error: {e}")
 
                     elif processor.silence_duration > 1.0:
                         processor.buffer = np.empty((0, 1), dtype=np.float32)
@@ -101,6 +120,8 @@ async def websocket_handler(request):
 
 
 async def tts_handler(request):
+    if tts is None:
+        return web.json_response({"error": "TTS service unavailable"}, status=500)
     try:
         data = await request.json()
         text = data.get("text")
@@ -134,9 +155,9 @@ async def tts_handler(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
-
-translator = TranslationModel()
 async def translate_handler(request):
+    if translator is None:
+        return web.json_response({"error": "Translation service unavailable"}, status=500)
     try:
         data = await request.json()
         text = data.get("text")
@@ -146,7 +167,6 @@ async def translate_handler(request):
         if not text:
             return web.json_response({"error": "Нет текста для перевода"}, status=400)
 
-        # Запускаем перевод в отдельном потоке, чтобы не блокировать event loop
         translation_result = await asyncio.to_thread(translator.translate, text, source_lang, target_lang)
 
         return web.json_response({"translation": translation_result})
